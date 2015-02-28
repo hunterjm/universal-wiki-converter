@@ -146,6 +146,8 @@ public class MindtouchExporter implements Exporter {
 	}
 
 	private void authenticate(String baseurl, int port, String user, String pass, HttpMethod method, HttpClient client) {
+		// get just the root domain from baseurl
+		if(baseurl.startsWith("http")) baseurl = baseurl.replaceFirst("http[s]?://", "");
 		client.getState().setCredentials(new AuthScope(baseurl, port),
 				new UsernamePasswordCredentials(user, pass));
 		method.setDoAuthentication(true);
