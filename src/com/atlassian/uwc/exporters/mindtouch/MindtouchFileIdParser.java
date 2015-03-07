@@ -68,7 +68,7 @@ public class MindtouchFileIdParser extends DefaultHandler {
 	public void characters(char[] ch, int start, int length) {
 		if (isName) {
 			String content = String.copyValueOf(ch, start, length);
-			this.currentName += content;
+			this.currentName += content.replace(" ", "_");
 		}
 	}
 	

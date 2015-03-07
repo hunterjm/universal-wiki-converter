@@ -248,12 +248,12 @@ public class MindtouchExporterTest extends TestCase {
 						"<p>Testing</p>\n" + 
 						"<div id=\"section_5\"><span id=\"Header_5\" /><h6 class=\"editable\">Header 5</h6>\n" + 
 						"<p>Lorem Ipsum</p>\n" + 
-						"<p>Ê</p>\n" + 
+						"<p>ï¿½</p>\n" + 
 						"<p>What about Fonts?</p>\n" + 
 						"<p><span style=\"font-family: Courier New;\">Testing Courier</span></p>\n" + 
 						"<p><span style=\"font-family: Times New Roman;\">Times</span></p>\n" + 
 						"<p><span style=\"font-family: Verdana;\">Verdana</span></p>\n" + 
-						"<p>Ê</p>\n" + 
+						"<p>ï¿½</p>\n" + 
 						"<p>and Font size?</p>\n" + 
 						"<p><span style=\"font-size: xx-small;\">xxsmall</span></p>\n" + 
 						"<p><span style=\"font-size: x-small;\">xsmall</span></p>\n" + 
@@ -262,7 +262,7 @@ public class MindtouchExporterTest extends TestCase {
 						"<p><span style=\"font-size: large;\">large</span></p>\n" + 
 						"<p><span style=\"font-size: x-large;\">xlarge</span></p>\n" + 
 						"<p><span style=\"font-size: xx-large;\">xxlarge</span></p>\n" + 
-						"<p>Ê</p>\n" + 
+						"<p>ï¿½</p>\n" + 
 						"<p>What happens when we mix and match different stuff</p>\n" + 
 						"<p style=\"margin-left: 40px;\"><code><strong>bold indent code</strong></code></p>\n" + 
 						"<p><span style=\"font-family: Courier New;\"><span style=\"font-size: x-large;\">Courier xlarge</span></span></p>\n" + 
@@ -513,13 +513,13 @@ public class MindtouchExporterTest extends TestCase {
 		assertFalse(out.exists());
 		
 		Vector<MindtouchPage> pages = new Vector<MindtouchPage>();
-		MindtouchPage page = new MindtouchPage("39", "Sandbox", 
+		MindtouchPage page = new MindtouchPage("39", "http://testuri.net/Sandbox", "Sandbox", 
 				"<content type=\"text/html\" title=\"Sandbox\"><body>\n" + 
 					"<p>Testing 123</p></body><body target=\"toc\"><em>No headers</em></body></content>",
 				"<tags count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/tags\" />",
 				"<comments count=\"0\" totalcount=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/comments\" />",
-				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />");
-		MindtouchPage child = new MindtouchPage("43", "Test Tags", 
+				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />","");
+		MindtouchPage child = new MindtouchPage("43", "http://testuri.net/Test_Tags", "Test Tags", 
 				"<content type=\"text/html\" title=\"Test Tags\"><body>\n" + 
 					"<p>This page will have tags associated with it that will need to be turned into labels</p></body><body target=\"toc\"><em>No headers</em></body></content>",
 				"<tags count=\"1\" href=\"http://192.168.2.247/@api/deki/pages/43/tags\">" +
@@ -528,8 +528,8 @@ public class MindtouchExporterTest extends TestCase {
 					"</tag>" +
 					"</tags>",
 				"<comments count=\"0\" totalcount=\"0\" href=\"http://192.168.2.247/@api/deki/pages/43/comments\" />",
-				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/43/files\" />");
-		MindtouchPage attchild = new MindtouchPage("40", "Test Attachments", 
+				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/43/files\" />","");
+		MindtouchPage attchild = new MindtouchPage("40", "http://testuri.net/Test_Attachments", "Test Attachments", 
 				"<content type=\"text/html\" title=\"Test Attachments\"><body>\n" + 
 				"<p>We\'re going to have some attachments content.</p>\n" + 
 				"<p>We need an image that\'s inline, a link to an attachment, and an attached file with no reference in the page.</p>\n" + 
@@ -563,7 +563,7 @@ public class MindtouchExporterTest extends TestCase {
 				"<nick>laura.kolker</nick><username>laura.kolker</username><email>laura.kolker@gmail.com</email>" +
 				"<hash.email>9ed3310b0d84b37fe658dce82b713c08</hash.email><uri.gravatar>http" +
 				"://www.gravatar.com/avatar/9ed3310b0d84b37fe658dce82b713c08</uri.gravatar>" +
-				"</user.modified></property></properties></file></files>");
+				"</user.modified></property></properties></file></files>", "");
 		page.getSubpages().add(child);
 		page.getSubpages().add(attchild);
 		pages.add(page);
@@ -835,12 +835,12 @@ public class MindtouchExporterTest extends TestCase {
 
 
 	public void testGetFilename() {
-		MindtouchPage page = new MindtouchPage("39", "Sandbox", 
+		MindtouchPage page = new MindtouchPage("39", "http://testuri.net/Sandbox", "Sandbox", 
 				"<content type=\"text/html\" title=\"Sandbox\"><body>\n" + 
 					"<p>Testing 123</p></body><body target=\"toc\"><em>No headers</em></body></content>",
 				"<tags count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/tags\" />",
 				"<comments count=\"0\" totalcount=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/comments\" />",
-				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />");
+				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />","");
 		String input, expected, actual;
 		expected = "39_Sandbox.xml";
 		actual = tester.getFilename(page);
@@ -901,11 +901,12 @@ public class MindtouchExporterTest extends TestCase {
 		String tags = "<tags count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/tags\" />";
 		String comments = "<comments count=\"0\" totalcount=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/comments\" />";
 		String files = "<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />";
-		MindtouchPage page = new MindtouchPage("39", "Sandbox", 
+		MindtouchPage page = new MindtouchPage("39", "http://testuri.net/Sandbox", "Sandbox", 
 				content,
 				tags,
 				comments,
-				files);
+				files,
+				"");
 		String input, expected, actual;
 		expected = "<pagedata>" + content + tags + comments + files + "</pagedata>";
 		actual = tester.getFileContent(page);
@@ -953,12 +954,12 @@ public class MindtouchExporterTest extends TestCase {
 	}
 
 	public void testGetAttFilename() {
-		MindtouchPage page = new MindtouchPage("39", "Sandbox", 
+		MindtouchPage page = new MindtouchPage("39", "http://testuri.net/Sandbox", "Sandbox", 
 				"<content type=\"text/html\" title=\"Sandbox\"><body>\n" + 
 					"<p>Testing 123</p></body><body target=\"toc\"><em>No headers</em></body></content>",
 				"<tags count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/tags\" />",
 				"<comments count=\"0\" totalcount=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/comments\" />",
-				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />");
+				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />","");
 		String input, expected, actual;
 		expected = "39_Sandbox_attachments";
 		actual = tester.getAttFilename(page);
@@ -986,7 +987,7 @@ public class MindtouchExporterTest extends TestCase {
 	}
 
 	public void testOutputAttachmentData() {
-		MindtouchPage page = new MindtouchPage("40", "Test Attachments", 
+		MindtouchPage page = new MindtouchPage("40", "http://testuri.net/Test_Attachments", "Test Attachments", 
 				"<content type=\"text/html\" title=\"Test Attachments\"><body>\n" + 
 				"<p>We\'re going to have some attachments content.</p>\n" + 
 				"<p>We need an image that\'s inline, a link to an attachment, and an attached file with no reference in the page.</p>\n" + 
@@ -997,7 +998,7 @@ public class MindtouchExporterTest extends TestCase {
 				"</body><body target=\"toc\"><em>No headers</em></body></content>",
 			"<tags count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/40/tags\" />",
 			"<comments count=\"0\" totalcount=\"0\" href=\"http://192.168.2.247/@api/deki/pages/40/comments\" />",
-			EX_MULT_FILES);
+			EX_MULT_FILES,"");
 		
 		File attdir = tester.cleanOutputDir(this.props.getProperty(MindtouchExporter.PROPKEY_OUTPUTDIR));
 		try {
@@ -1018,12 +1019,12 @@ public class MindtouchExporterTest extends TestCase {
 		}
 	}
 	public void testGetSubFilename() {
-		MindtouchPage page = new MindtouchPage("39", "Sandbox", 
+		MindtouchPage page = new MindtouchPage("39", "http://testuri.net/Sandbox", "Sandbox", 
 				"<content type=\"text/html\" title=\"Sandbox\"><body>\n" + 
 					"<p>Testing 123</p></body><body target=\"toc\"><em>No headers</em></body></content>",
 				"<tags count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/tags\" />",
 				"<comments count=\"0\" totalcount=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/comments\" />",
-				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />");
+				"<files count=\"0\" href=\"http://192.168.2.247/@api/deki/pages/39/files\" />","");
 		String input, expected, actual;
 		expected = "39_Sandbox_subpages";
 		actual = tester.getSubFilename(page);

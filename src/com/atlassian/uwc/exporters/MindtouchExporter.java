@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
+import java.net.SocketTimeoutException;
+import java.net.URLEncoder;
 import java.util.Map;
 import java.util.Vector;
 import java.util.regex.Matcher;
@@ -20,12 +22,25 @@ import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.log4j.Logger;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 import org.xml.sax.helpers.XMLReaderFactory;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import com.atlassian.uwc.converters.tikiwiki.RegexUtil;
 import com.atlassian.uwc.exporters.mindtouch.MindtouchFileIdParser;
@@ -55,6 +70,7 @@ public class MindtouchExporter implements Exporter {
 	public static final String PROPKEY_OUTPUTDIR = "output.dir";
 	public static final String PROPKEY_BUFFERSIZE = "att.buffer";
 	public static final String PROPKEY_TIMEOUT = "timeout";
+	public static final String PROPKEY_SOCKET_TIMEOUT = "socketTimeout";
 	public static final String PROPKEY_IGNOREMT = "ignore.mindtouch";
 
 	
@@ -62,6 +78,7 @@ public class MindtouchExporter implements Exporter {
 	private Map properties;
 	private HttpClient client;
 	private int error;
+	private int soTimeout = -1;
 	
 	Logger log = Logger.getLogger(this.getClass());
 
@@ -91,8 +108,11 @@ public class MindtouchExporter implements Exporter {
 		pages = getComments(pages);
 		log.info("Getting attachment info.");
 		pages = getAttachments(pages);
+		log.info("Getting page permissions.");
+		pages = getPermissions(pages);
 
 		outputPageData(pages);
+		outputLinkData(pages);
 	}
 
 	protected Vector<MindtouchPage> getPages() {
@@ -121,6 +141,10 @@ public class MindtouchExporter implements Exporter {
 		GetMethod method = new GetMethod(url);
 		
 		HttpClient client = getClient();
+		if(this.soTimeout > getSocketTimeout()) {
+			// We want a lower timeout for page parts
+			client.getHttpConnectionManager().getParams().setSoTimeout(this.soTimeout);
+		}
 		authenticate(baseurl, port, user, pass, method, client);
 		
 		try {
@@ -129,6 +153,13 @@ public class MindtouchExporter implements Exporter {
 				handleError(result, method);
 			}
 			return method.getResponseBodyAsString();
+		} catch (SocketTimeoutException ste) {
+			// retry
+			log.warn("Request timed out in " + this.soTimeout + "ms.  Retrying...");
+			this.soTimeout += getSocketTimeout();
+			String tmp = getPagelistXml();
+			this.soTimeout = getSocketTimeout();
+			return tmp;
 		} catch (Exception e) {
 			log.error("Problem occured when making rest request to: " + url);
 			e.printStackTrace();
@@ -236,7 +267,8 @@ public class MindtouchExporter implements Exporter {
 			Matcher titleFinder = title.matcher(fileinfo);
 			if (titleFinder.find()) {
 				String title = titleFinder.group(1);
-				after += "?parent=" + title;
+				// URL Encode to make it safe
+				after += "?parent=" + URLEncoder.encode(StringEscapeUtils.unescapeHtml(title));
 			}
 			String replacement = before + id + after;
 			replacement = RegexUtil.handleEscapesInReplacement(replacement);
@@ -253,9 +285,9 @@ public class MindtouchExporter implements Exporter {
 		if (!this.running) return pages;
 		for (MindtouchPage page : pages) {
 			log.debug("...Getting tags for: " + getFilename(page));
-			//get the content for this page
+			//get the tags for this page
 			page.tags = getTags(page.id);
-			//get the content for subpages
+			//get the tags for subpages
 			getTags(page.getSubpages());
 		}
 		return pages;
@@ -271,9 +303,9 @@ public class MindtouchExporter implements Exporter {
 		if (!this.running) return pages;
 		for (MindtouchPage page : pages) {
 			log.debug("...Getting comments for: " + getFilename(page));
-			//get the content for this page
+			//get the comments for this page
 			page.comments = getComments(page.id);
-			//get the content for subpages
+			//get the comments for subpages
 			getComments(page.getSubpages());
 		}
 		return pages;
@@ -288,9 +320,9 @@ public class MindtouchExporter implements Exporter {
 		if (!this.running) return pages;
 		for (MindtouchPage page : pages) {
 			log.debug("...Getting file data for: " + getFilename(page));
-			//get the content for this page
+			//get the attachments for this page
 			page.attachments = getAttachments(page.id);
-			//get the content for subpages
+			//get the attachments for subpages
 			getAttachments(page.getSubpages());
 		}
 		return pages;
@@ -299,6 +331,23 @@ public class MindtouchExporter implements Exporter {
 	protected String getAttachments(String id) {
 		if (!this.running) return null;
 		return getPagePart(id, "files", "");
+	}
+	
+	protected Vector<MindtouchPage> getPermissions(Vector<MindtouchPage> pages) {
+		if (!this.running) return pages;
+		for (MindtouchPage page : pages) {
+			log.debug("...Getting permission data for: " + getFilename(page));
+			//get the permissions for this page
+			page.permissions = getPermissions(page.id);
+			//get the permissions for subpages
+			getPermissions(page.getSubpages());
+		}
+		return pages;
+	}
+	
+	protected String getPermissions(String id) {
+		if (!this.running) return null;
+		return getPagePart(id, "security", "");
 	}
 	
 	/* XXX Start OutputPageData methods */
@@ -335,6 +384,73 @@ public class MindtouchExporter implements Exporter {
 		}
 		
 	}
+	
+	protected void outputLinkData(Vector<MindtouchPage> pages) {
+		if (!this.running) return;
+		String output = getOutput();
+		if (!output.endsWith(File.separator)) output += File.separator;
+		File xmlFilePath = new File(output + "exported_mindtouch_links.xml");
+		if (!xmlFilePath.exists()) {
+			log.info("Creating link file: " + output);
+			try {
+				xmlFilePath.createNewFile();
+			} catch(IOException E) {
+				E.printStackTrace();
+			}
+		} else {
+			xmlFilePath.delete();
+			try {
+				xmlFilePath.createNewFile();
+			} catch(IOException E) {
+				E.printStackTrace();
+			}
+			log.info("Cleaning and creating link file: " + output);
+		}
+		try {
+			
+			DocumentBuilderFactory documentFactory = DocumentBuilderFactory.newInstance();
+			DocumentBuilder documentBuilder = documentFactory.newDocumentBuilder();
+			Document document = documentBuilder.newDocument();
+	
+			// root element
+			Element root = document.createElement("links");
+			document.appendChild(root);
+			
+			log.info("Writing link data to file system.");
+			outputLinkData(pages, document, root);
+			
+			//transform the DOM Object to an XML File
+			TransformerFactory transformerFactory = TransformerFactory.newInstance();
+			Transformer transformer = transformerFactory.newTransformer();
+			DOMSource domSource = new DOMSource(document);
+			StreamResult streamResult = new StreamResult(xmlFilePath);
+
+			transformer.transform(domSource, streamResult);
+			
+		} catch (ParserConfigurationException pce) {
+			pce.printStackTrace();
+		} catch (TransformerException tfe) {
+			tfe.printStackTrace();
+		}
+	}
+	
+	protected void outputLinkData(Vector<MindtouchPage> pages, Document document, Element root) {
+		for (MindtouchPage page : pages) {
+			if (!this.running) return;
+			log.debug("...Writing uri for " + page.title);
+			
+			// link element
+			Element link = document.createElement("link");
+			link.setAttribute("href", page.uri);
+			link.appendChild(document.createTextNode(page.title));
+			root.appendChild(link);
+			
+			//subpage links
+			if (!page.getSubpages().isEmpty()) {
+				outputLinkData(page.getSubpages(), document, root);
+			}
+		}
+	}
 
 	protected String getFilename(MindtouchPage page) {
 		return page.id + FILESYS_DELIM + getFilesystemTitle(page.title) + EXT_FILE;
@@ -348,7 +464,11 @@ public class MindtouchExporter implements Exporter {
 
 	protected String getFileContent(MindtouchPage page) {
 		return FILECONTENT_TAGSTART + 
-				page.content + page.tags + page.comments + page.attachments + 
+				page.content + 
+				(page.tags==null?"":page.tags) + 
+				(page.comments==null?"":page.comments) + 
+				(page.attachments==null?"":page.attachments) + 
+				(page.permissions==null?"":page.permissions) + 
 				FILECONTENT_TAGEND;
 	}
 
@@ -485,7 +605,6 @@ public class MindtouchExporter implements Exporter {
 	}
 	
 	/* XXX End OutputPageData methods */
-	
 	protected String getPagePart(String id, String pagepart, String parameters) {
 		if (!this.running) return null;
 		String baseurl = getBaseUrl();
@@ -502,6 +621,10 @@ public class MindtouchExporter implements Exporter {
 		GetMethod method = new GetMethod(url);
 		
 		HttpClient client = getClient();
+		if(this.soTimeout > getSocketTimeout()) {
+			// We want a lower timeout for page parts
+			client.getHttpConnectionManager().getParams().setSoTimeout(this.soTimeout);
+		}
 		authenticate(baseurl, port, user, pass, method, client);
 		
 		try {
@@ -510,6 +633,13 @@ public class MindtouchExporter implements Exporter {
 				handleError(result, method);
 			}
 			return method.getResponseBodyAsString();
+		} catch (SocketTimeoutException ste) {
+			// retry
+			log.warn("Request timed out in " + this.soTimeout + "ms.  Retrying...");
+			this.soTimeout += getSocketTimeout();
+			String tmp = getPagePart(id, pagepart, parameters);
+			this.soTimeout = getSocketTimeout();
+			return tmp;
 		} catch (Exception e) {
 			log.error("Problem occured when making rest request to: " + url);
 			e.printStackTrace();
@@ -533,6 +663,10 @@ public class MindtouchExporter implements Exporter {
 		GetMethod method = new GetMethod(url);
 		
 		HttpClient client = getClient();
+		if(this.soTimeout > getSocketTimeout()) {
+			// We want a lower timeout for page parts
+			client.getHttpConnectionManager().getParams().setSoTimeout(this.soTimeout);
+		}
 		authenticate(baseurl, port, user, pass, method, client);
 		
 		try {
@@ -541,6 +675,13 @@ public class MindtouchExporter implements Exporter {
 				handleError(result, method);
 			}
 			return method.getResponseBodyAsString();
+		} catch (SocketTimeoutException ste) {
+			// retry
+			log.warn("Request timed out in " + this.soTimeout + "ms.  Retrying...");
+			this.soTimeout += getSocketTimeout();
+			String tmp = getFileInfo(id, pagepart, parameters);
+			this.soTimeout = getSocketTimeout();
+			return tmp;
 		} catch (Exception e) {
 			log.error("Problem occured when making rest request to: " + url);
 			e.printStackTrace();
@@ -670,6 +811,10 @@ public class MindtouchExporter implements Exporter {
 			HttpConnectionManager httpConnectionManager = client.getHttpConnectionManager();
 			HttpConnectionManagerParams params = httpConnectionManager.getParams();
 			params.setConnectionTimeout(getTimeout());
+			if(getSocketTimeout() > 0) {
+				this.soTimeout = getSocketTimeout();
+				params.setSoTimeout(this.soTimeout);
+			}
 		}
 		return this.client;
 	}
@@ -677,6 +822,12 @@ public class MindtouchExporter implements Exporter {
 	private int getTimeout() {
 		String prop = (String) properties.get(MindtouchExporter.PROPKEY_TIMEOUT);
 		if (prop == null) prop = DEFAULT_TIMEOUT_MS;
+		return Integer.parseInt(prop);
+	}
+	
+	private int getSocketTimeout() {
+		String prop = (String) properties.get(MindtouchExporter.PROPKEY_SOCKET_TIMEOUT);
+		if (prop == null) prop = "-1";
 		return Integer.parseInt(prop);
 	}
 	

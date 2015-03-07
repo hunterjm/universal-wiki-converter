@@ -37,10 +37,12 @@ public class MindtouchPagelistParser extends DefaultHandler {
 	
 	public enum Type {
 		PAGE,
+		URI,
 		TITLE,
 		SUBPAGES;
 		public static Type getType(String input) {
 			if (input.equals("page")) return PAGE;
+			if (input.equals("uri.ui")) return URI;
 			if (input.equals("title")) return TITLE;
 			if (input.equals("subpages")) return SUBPAGES;
 			return null;
@@ -95,6 +97,10 @@ public class MindtouchPagelistParser extends DefaultHandler {
 		String content = String.copyValueOf(ch, start, length);
 		if (this.tagState == null) return;
 		switch (this.tagState) {
+		case URI:
+			if (this.current.uri == null) this.current.uri = "";
+			this.current.uri += content;
+			break;
 		case TITLE:
 			if (this.current.title == null) this.current.title = "";
 			this.current.title += content;

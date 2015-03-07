@@ -6,24 +6,29 @@ import java.util.regex.Pattern;
 
 public class MindtouchPage {
 	public String id;
+	public String uri;
 	public String title;
 	public String content;
 	public String tags;
 	public String comments;
 	public String attachments;
+	public String permissions;
 	private Vector<MindtouchPage> subpages;
 
 	public MindtouchPage() {
 		
 	}
 	
- 	public MindtouchPage(String id, String title, String content, String tags, String comments, String attachments) {
+ 	public MindtouchPage(String id, String uri, String title, String content, String tags, String comments, String attachments, String permissions) {
  		this.id = id;
+ 		this.uri = uri;
  		this.title = title;
  		this.content = content;
  		this.tags = tags;
  		this.comments = comments;
  		this.attachments = attachments;
+ 		this.permissions = permissions;
+ 		
  	}
 	
 	public Vector<MindtouchPage> getSubpages() {
