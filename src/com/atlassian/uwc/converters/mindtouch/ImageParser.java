@@ -44,11 +44,19 @@ public class ImageParser extends DefaultXmlParser {
 		appendOutput(output);
 	}
 	private String createImgSyntax(String filenameString) {
-		return "!" + filenameString + "!";
+		return "!" + replaceTokens(filenameString) + "!";
 	}
 	private String createImgSyntax(String filenameString, String parent) {
 		if (getPage() != null && getPage().getName() != null && getPage().getName().equals(parent))
 			return createImgSyntax(filenameString);
-		return "!" + parent + "^" + filenameString + "!";
+		return "!" + replaceTokens(parent) + "^" + replaceTokens(filenameString) + "!";
+	}
+	private String replaceTokens(String s) {
+		
+		return s.replace("_", "UNDERSCORETOKEN")
+				.replace("*", "ASTERISKTOKEN")
+				.replace("-", "DASHTOKEN")
+				.replace("+", "PLUSTOKEN");
+		
 	}
 }
