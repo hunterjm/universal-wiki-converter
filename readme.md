@@ -2,7 +2,7 @@
 
 ### About this Fork
 
-This fork was created 100% to convert a MindTouch wiki to Confluence.  All work that has been done has been done for MindTouch.  If you have a different Wiki, you may want to look somewhere else.  If you have MindTouch this will save you weeks of work.
+This fork was created 100% to convert a MindTouch wiki to Confluence.  All work that has been done has been done for MindTouch.  If you have a different Wiki, you may want to look somewhere else.  If you have MindTouch this will save you weeks of work.  Please note, that even this parser is not perfect.  You will have to modify some janky HTML source files to fit this scheme in order to make sure everything imports properly.
 
 #### Simple Setup
 
@@ -10,13 +10,16 @@ Below is the easiest way to get started and see if it works.  It's easier this w
 
 * Modify conf/confluenceSettings.properties and add in your confluence settings
 * Open conf/exporter.mindtouch.properties and be sure to set the following:
-  * url.base: The URL to your MindTouch Wiki
-  * user: Your MindTouch administrator username
-  * pass: Your MindTouch administrator password
-  * output.dir: You might want to set this to an absolute path
-  * timeout: This is the HTTP connection timeout
-  * socketTimeout: How long we will wait for a response
-    * -1 uses HttpClient default, and skips the page on timeout
+	* url.base: The URL to your MindTouch Wiki
+	* user: Your MindTouch administrator username
+	* pass: Your MindTouch administrator password
+	* output.dir: You might want to set this to an absolute path
+	* timeout: This is the HTTP connection timeout
+	* socketTimeout: How long we will wait for a response
+		* -1 uses HttpClient default, and skips the page on timeout
+* Open conf/converter.mindtouch.properties and be sure to uncomment and set the following:
+	* Mindtouch.0203.filepath-hierarchy-ignorable-ancestors.property
+	* Mindtouch.4300.exportdir.property
 
 #### Socket Timeout & Retry functionality
 
