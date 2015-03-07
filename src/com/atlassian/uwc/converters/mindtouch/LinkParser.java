@@ -1,13 +1,26 @@
 package com.atlassian.uwc.converters.mindtouch;
 
 import java.io.File;
-import java.io.FileFilter;
+import java.io.IOException;
+import java.net.URLDecoder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.w3c.dom.Document;
+
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 import com.atlassian.uwc.converters.tikiwiki.RegexUtil;
 import com.atlassian.uwc.converters.xml.DefaultXmlParser;
@@ -22,12 +35,15 @@ public class LinkParser extends DefaultXmlParser {
 	private NoSvnFilter nosvnfilter = new NoSvnFilter(); 
 	Logger log = Logger.getLogger(this.getClass());
 	public enum Type {
+		ANCHOR,
 		INTERNAL,
 		EXTERNAL;
 		public static Type getType(Attributes attributes) {
+			String href = attributes.getValue("href");
+			if(href != null && href.startsWith("#")) return ANCHOR;
 			String val = attributes.getValue("rel");
 			if (val == null) return null;
-			if (val.contains("internal")) return INTERNAL;
+			if (val.contains("internal") || val.contains("custom")) return INTERNAL;
 			if (val.contains("external")) return EXTERNAL;
 			return null;
 		}
@@ -37,6 +53,24 @@ public class LinkParser extends DefaultXmlParser {
 	public void startElement(String uri, String localName, String qName, Attributes attributes) {
 		String href = attributes.getValue("href");
 		Type type = Type.getType(attributes);
+		if (href == null || type == null) {
+			log.warn("Link href/type is undefined.");
+			return;
+		}
+		// There are some really weird inline editor related links we need to skip
+		int len = attributes.getLength();
+		// Loop through all attributes
+		for(int i = 0; i < len; i++) {
+			String sAttrName = attributes.getLocalName(i);
+			if(
+				sAttrName.equalsIgnoreCase("onclick") ||
+				sAttrName.equalsIgnoreCase("onmouseover") ||
+				sAttrName.equalsIgnoreCase("onmouseout")
+			) {
+				log.warn("Link has a " + sAttrName + " attribute, which is not supported.");
+				return;
+			}
+		}
 		switch (type) {
 		case INTERNAL:
 			isImage = isImage(href);
@@ -46,12 +80,65 @@ public class LinkParser extends DefaultXmlParser {
 			else {
 				Matcher endFinder = hrefend.matcher(href);
 				target = endFinder.find()?endFinder.group():href;
-				if (target.contains("_")) target = fixUnderscores(target, href, getPage());
+				target = findInternalLink(target, href, getPage());
+				if (target.contains("_")) target = fixUnderscores(URLDecoder.decode(target), href, getPage());
 			}
 			break;
 		case EXTERNAL:
+		case ANCHOR:
 			target = href;
 		}
+	}
+	
+	protected String findInternalLink(String input, String href, Page page) {
+		
+		try {
+			
+			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+			DocumentBuilder builder = factory.newDocumentBuilder();
+			Document doc = builder.parse(new File("/Users/jhunter/tmp/exported_mindtouch_links.xml"));
+			XPathFactory xPathfactory = XPathFactory.newInstance();
+			XPath xpath = xPathfactory.newXPath();
+			XPathExpression expr = xpath.compile(String.format("/links/link[@href=%s]/text()", escape(href)));
+			
+			String result = expr.evaluate(doc);
+			log.debug("Found Link for " + href + ": " + result);
+			if(!result.isEmpty()) return result;
+			
+		} catch (ParserConfigurationException pce) {
+            pce.printStackTrace();
+        } catch (SAXException se) {
+        	se.printStackTrace();
+        } catch(XPathExpressionException xpe) {
+        	xpe.printStackTrace();
+        } catch (IOException e) {
+        	e.printStackTrace();
+        }
+		
+		// Fallback
+		return input;
+		
+	}
+	
+	private String escape(String s) {
+		Matcher matcher = Pattern.compile("['\"]").matcher(s);
+		StringBuilder buffer = new StringBuilder("concat(");
+		int start = 0;
+		while (matcher.find()) {
+			buffer.append("'")
+				.append(s.substring(start, matcher.start()))
+				.append("',");
+			buffer.append("'".equals(matcher.group()) ? "\"'\"," : "'\"',");
+			start = matcher.end();
+		}
+		if (start == 0) {
+			return "'" + s + "'";
+		}
+		return buffer.append("'")
+				.append(s.substring(start))
+				.append("'")
+				.append(")")
+				.toString();
 	}
 	
 	Pattern parents = Pattern.compile("http://[^\\/]+\\/(.*)$", Pattern.DOTALL);
@@ -73,7 +160,7 @@ public class LinkParser extends DefaultXmlParser {
 				//get list of export pages to work with (ignore mindtouch root page, if it's there)
 				boolean foundMindtouchAsRoot = false;
 				for (File file : exportfiles) {
-					if (file.isDirectory() && file.getName().endsWith("_MindTouch_subpages")) {
+					if (file.isDirectory() && file.getName().endsWith("_RedWiki_subpages")) {
 						foundMindtouchAsRoot = true;
 						rootFile = file;
 						break; //should only be one
@@ -84,13 +171,13 @@ public class LinkParser extends DefaultXmlParser {
 				else rootFiles = rootFile.listFiles(nosvnfilter);
 				//walk the tree to get the leaf file for the input/href/page 
 				File leafFile = getFile(parentArray, rootFiles);
-				if (leafFile == null) return input;
+				if (leafFile == null) return input.replace("_", " ");
 				return fixUnderscores(input, leafFile);
 			}
 			else return input;
 			
 		}
-		return input;
+		return input.replace("_", " ");
 	}
 	
 	private File getFile(String[] ancestors, File[] thisdir) {
@@ -176,6 +263,7 @@ public class LinkParser extends DefaultXmlParser {
 	}
 
 	public void endElement(String uri, String localName, String qName) {
+		if(target == "" || alias == "") return;
 		if (target.equals(alias)) alias = "";
 		else alias += "|";
 		String link;
@@ -185,10 +273,19 @@ public class LinkParser extends DefaultXmlParser {
 			else     
 				target = parent + "^" + target;
 		}
-		link = "[" + alias + target + "]";
+		link = "[" + replaceTokens(alias) + replaceTokens(target) + "]";
 		appendOutput(link);
 		alias = target = "";
 		isImage = false;
+	}
+	
+	private String replaceTokens(String s) {
+		
+		return s.replace("_", "UNDERSCORETOKEN")
+				.replace("*", "ASTERISKTOKEN")
+				.replace("-", "DASHTOKEN")
+				.replace("+", "PLUSTOKEN");
+		
 	}
 	
 	public void characters(char[] ch,
