@@ -387,6 +387,9 @@ public class ConverterEngine implements FeedbackHandler {
 			// do final required conversions. This step is seperate, due to state saving issues
 			convertWithRequiredConverters(allPages);
 
+			// Avoid Collisions
+			avoidCollisions(allPages);
+						
 			//save pages if engine-saves-to-disk property is true. Useful for debugging.
 			//We are making this opt-in because users that don't need it will get a speed boost with fewer disk calls
 			if (Boolean.parseBoolean(this.miscProperties.getProperty(PROPKEY_ENGINE_SAVES_TO_DISK, "false")))
@@ -398,7 +401,7 @@ public class ConverterEngine implements FeedbackHandler {
 					!(isPageHistorySortOnCreate())) {
 				allPages = sortByHistory(allPages);
 			}
-
+			
 			if (hierarchyHandler == HierarchyHandler.HIERARCHY_BUILDER && hierarchyBuilder != null) {
 				//tell the hierarchy builder about the page histories framework
 				//do this here so that we're sure the page histories properties are set
@@ -1093,6 +1096,7 @@ public class ConverterEngine implements FeedbackHandler {
 
 			//convert the page
 			convertPage(converters, page);
+			
 			//more bookkeeping
 			conversionBookkeepingEndThisPage(startTimeStamp);
 			if (!this.running) {
@@ -1307,11 +1311,47 @@ public class ConverterEngine implements FeedbackHandler {
 				return;
 			}
 			this.state.updateProgress();
-			String outputFileLoc = outputDirName + File.separator + page.getName() + pattern;
+			String outputFileLoc = outputDirName + File.separator + page.getName().replaceAll("\\W+", "") + pattern;
 			FileUtils.writeFile(page.getConvertedText(), outputFileLoc);
 		}
 	}
 
+	protected void avoidCollisions(List<Page> pages) {
+		//sort
+		Vector<Page> sorted = new Vector<Page>();
+		sorted.addAll(pages);
+		AsciiVersionComparator version = new AsciiVersionComparator();
+		Collections.sort(sorted, version);
+		//look for collisions
+		Page last = new Page(null);
+		last.setName("");
+		last.setPath("");
+		Vector<Page> collisions = new Vector<Page>();
+		for (int i = 1; i < sorted.size(); i++) {
+			if(collisions.size() > 0) {
+				last = (Page) collisions.get(collisions.size()-1);
+			}
+			Page page1 = (Page) sorted.get(i-1);
+			Page page2 = (Page) sorted.get(i);
+			log.debug("Checking for collisions: " + page1.getName() + " and " + page2.getName());
+			//if each page lower cased is the same
+			if (colliding(page1, page2)) {
+				if (!getCollisionComparisonString(page1).equals(getCollisionComparisonString(last))) { //already have one for this name
+					collisions.add(page1);
+				}
+				collisions.add(page2);
+			} else {
+				log.debug("We found " + collisions.size() + " collisions for: " + last.getName());
+				// take care of our collisions
+				for(int j = 1; j < collisions.size(); j++) {
+					Page fix = collisions.get(j);
+					fix.setName(fix.getName() + " (" + j + ")");
+				}
+				collisions.clear();
+			}
+		}
+	}
+	
 	protected Vector listCollisions(List<Page> pages) {
 		Vector<String> collisions = new Vector<String>();
 		//check to see if "off" property is present
@@ -2023,6 +2063,9 @@ public class ConverterEngine implements FeedbackHandler {
 				return null;
 			}
 		} catch (Exception e) {
+			log.error("The Remote API threw an exception when it tried to upload page: \"" +
+							pageTable.get("title") +
+							"\".");
 			getErrors().addError(Feedback.REMOTE_API_ERROR, 
 					"The Remote API threw an exception when it tried to upload page: \"" +
 							pageTable.get("title") +
@@ -2165,6 +2208,8 @@ public class ConverterEngine implements FeedbackHandler {
 		sendAuthor(page, broker, id, confSettings);
 		//set timestamp
 		sendTimestamp(page, broker, id, confSettings);
+		//send permissions
+		sendPermissions(page, broker, id, confSettings);
 		//return the page id
 		return id;
 	}
@@ -2400,6 +2445,64 @@ public class ConverterEngine implements FeedbackHandler {
 		}
 	}
 
+	private void sendPermissions(Page page, RemoteWikiBroker broker, String id, ConfluenceServerSettings confSettings) {
+		Vector<ContentPermission> permissions = page.getPermissions();
+		if(!page.getPermissions().isEmpty()) {
+			log.debug("Sending permissions for page: " + page.getName());
+			try {
+				//set the permissions
+				Vector<Hashtable> viewPermissions = createPermissionsTable(permissions, ContentPermission.Type.VIEW);
+				if(!viewPermissions.isEmpty())
+					broker.setContentPermissions(confSettings, id, "View", viewPermissions);
+				Vector<Hashtable> editPermissions = createPermissionsTable(permissions, ContentPermission.Type.EDIT);
+				if(!editPermissions.isEmpty())
+					broker.setContentPermissions(confSettings, id, "Edit", editPermissions);
+			} catch (Exception e) {
+				// Possibly a deactivated user error
+				String errorMessage = e.getMessage();
+				String regex = "^.*(No user could be found for the username (\\w+))$";
+				Pattern pattern = Pattern.compile(regex);
+				Matcher matcher = pattern.matcher(errorMessage);
+				int size = permissions.size();
+				if(size > 1 && matcher.matches()) {
+					String username = matcher.group(2);
+					log.warn(matcher.group(1) + ". Resending without " + username);
+					Vector<ContentPermission> fixedPerms = new Vector<ContentPermission>();
+					for(ContentPermission grant : permissions) {
+						if(!grant.getName().equals(username))
+							fixedPerms.add(grant);
+					}
+					if(size > fixedPerms.size()) {
+						page.setPermissions(fixedPerms);
+						sendPermissions(page, broker, id, confSettings);
+						return;
+					}
+				}
+				errorMessage = Feedback.REMOTE_API_ERROR + 
+										": Problem setting content permissions on " + 
+										page.getName() + ": " + errorMessage;
+				log.error(errorMessage);
+				this.errors.addError(Feedback.REMOTE_API_ERROR, errorMessage, true);
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private Vector<Hashtable> createPermissionsTable(Vector<ContentPermission> permissions, ContentPermission.Type type) {
+		boolean uploadUserHasPermission = false;
+		Vector<Hashtable> table = new Vector<Hashtable>();
+		for(ContentPermission grant : permissions) {
+			if(grant.getType().equals(type)) {
+				if(grant.getName().equals(this.settings.getLogin())) uploadUserHasPermission = true;
+				table.add(grant.toTable());
+			}
+		}
+		// We want to make sure the person uploading has permissions to continue to do so
+		if(table.size() > 0 && !uploadUserHasPermission) {
+			table.add(new ContentPermission(type, this.settings.getLogin(), false).toTable());
+		}
+		return table;
+	}
 
 	/**
 	 * @param file

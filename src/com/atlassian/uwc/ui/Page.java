@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.Set;
 import java.util.Vector;
 
@@ -63,6 +64,10 @@ public class Page implements Comparable {
      * the remote api or (b) will not need to be assocated seperately (page id) 
      */
     private Vector<Comment> comments; //It's a vector instead of a set to preserver order
+    /**
+     * set of permissions associated with this page
+     */
+    private Vector<ContentPermission> permissions;
     /**
      * username of author who updated this page. If null, the administrator running the UWC will be used
      */
@@ -138,6 +143,7 @@ public class Page implements Comparable {
         attachments = new HashSet<Attachment>();
         labels = new HashSet<String>();
         comments = new Vector<Comment>();
+        permissions = new Vector<ContentPermission>();
         setPath(path);
     }
 
@@ -383,6 +389,31 @@ public class Page implements Comparable {
 	
 	public boolean hasComments() {
 		return !this.comments.isEmpty();
+	}
+	
+	public Vector<ContentPermission> getPermissions() {
+		return this.permissions;
+	}
+	
+	public Vector<ContentPermission> getPermissions(ContentPermission.Type type) {
+		Vector<ContentPermission> typePermissions = new Vector<ContentPermission>();
+		for(ContentPermission grant : this.permissions) {
+			if(grant.getType().equals(type)) {
+				typePermissions.add(grant);
+			}
+		}
+		return typePermissions;
+	}
+	
+	public void setPermissions(Vector<ContentPermission> permissions) {
+		this.permissions.clear();
+        for(ContentPermission grant : permissions) {
+        	this.permissions.add(grant);
+        }
+    }
+	
+	public void addPermission(ContentPermission grant) {
+		this.permissions.add(grant);
 	}
 
 	public String getAuthor() {
