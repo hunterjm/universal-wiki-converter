@@ -132,6 +132,7 @@ public class TableParser extends DefaultXmlParser {
 	 * clean any necessary state so we can start fresh next time
 	 */
 	private void clean() {
+		maxCellsPerRow = numCellsPerRow = 0;
 		caption = "";
 	}
 	
