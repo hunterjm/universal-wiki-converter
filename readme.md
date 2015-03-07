@@ -25,7 +25,7 @@ Below is the easiest way to get started and see if it works.  It's easier this w
 
 Set this if you, like me, keep getting random 502's from the MindTouch API. Setting this to a positive number will also enable API retry functionality to pull down the page. The retry functionality will keep adding the time defined here to HttpClient socketTimeout whenever it recieves a SocketTimeoutException, and retry.
 
-The sweet spot for me was 350ms to keep it fast.  Obviously some large pages took longer and thus two requests (second one at 700ms, etc.), but when I was getting 502's it took 1 minute to timeout when a quick retry would pull the page back down just fine.
+The sweet spot for me was 350ms to keep it fast.  Obviously some large pages took longer and thus multiple requests (second one at 700ms, etc.), but when I was getting 502's it took 1 minute to timeout when a quick retry would pull the page back down just fine.
 
 
 ## Original Documentation
