@@ -119,11 +119,15 @@ public class SecurityParser extends DefaultXmlParser {
 		switch (type) {
 		case GRANT:
 			// Add page restrictions
-			if(this.parent.equals("security") && (this.pagePerm == PagePerms.SEMI_PUBLIC && this.perm == ContentPermission.Type.EDIT) || this.pagePerm == PagePerms.PRIVATE)
+			if((this.pagePerm == PagePerms.SEMI_PUBLIC && this.perm == ContentPermission.Type.EDIT) || this.pagePerm == PagePerms.PRIVATE) {
+				log.debug("Add " + ContentPermission.Type.toString(this.perm) + " Permission for" + (this.group ? " group: " : ": ") + this.name);
 				getPage().addPermission(new ContentPermission(this.perm, this.name, this.group));
+			}
 			// If it is private, and we are adding an edit restriction, also add it as a view restriction
-			if(this.parent.equals("security") && this.pagePerm == PagePerms.PRIVATE && this.perm == ContentPermission.Type.EDIT)
+			if(this.pagePerm == PagePerms.PRIVATE && this.perm == ContentPermission.Type.EDIT) {
+				log.debug("Add View Permission for" + (this.group ? " group: " : ": ") + this.name);
 				getPage().addPermission(new ContentPermission(ContentPermission.Type.VIEW, this.name, this.group));
+			}
 			this.perm = null;
 			this.name = null;
 			this.group = false;
