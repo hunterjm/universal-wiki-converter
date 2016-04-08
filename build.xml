@@ -185,6 +185,7 @@
     <target name="all" depends="init, compile.module.uwc, finish-dist" description="build all"/>
 
     <target name="finish-dist">
+    	<copy file="readme.md" tofile="${uwc.output.dir}/readme.md" />
         <copy todir="${uwc.output.dir}/lib">
             <fileset dir="lib"/>
         </copy>

@@ -11,6 +11,9 @@ Below is the easiest way to get started and see if it works.  It's easier this w
 * Modify conf/confluenceSettings.properties and add in your confluence settings
 * Open conf/exporter.mindtouch.properties and be sure to set the following:
 	* url.base: The URL to your MindTouch Wiki
+	* page.ids: The comma separated list of page ids you want to export (will include children)
+		* Can be found at http://{mywiki}/@api/deki/pages
+		* Leave empty to import whole wiki into single space
 	* user: Your MindTouch administrator username
 	* pass: Your MindTouch administrator password
 	* output.dir: You might want to set this to an absolute path
