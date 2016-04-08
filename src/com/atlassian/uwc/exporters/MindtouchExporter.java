@@ -59,6 +59,7 @@ public class MindtouchExporter implements Exporter {
 	private static final String DEFAULT_BUFFERSIZE = "1024";
 	private static final String DEFAULT_TIMEOUT_MS = "10000";
 	private static final String DEFAULT_IGNOREMT = "true";
+	private static final String DEFAULT_IGNORESECURITY = "false";
 	private static final String DEFAULT_PORT = "80";
 	private static final String EXPORT_DIR = "exported_mindtouch_pages";
 	
@@ -73,6 +74,7 @@ public class MindtouchExporter implements Exporter {
 	public static final String PROPKEY_TIMEOUT = "timeout";
 	public static final String PROPKEY_SOCKET_TIMEOUT = "socketTimeout";
 	public static final String PROPKEY_IGNOREMT = "ignore.mindtouch";
+	public static final String PROPKEY_IGNORESECURITY = "ignore.permissions";
 
 	
 	private boolean running = false;
@@ -109,8 +111,10 @@ public class MindtouchExporter implements Exporter {
 		pages = getComments(pages);
 		log.info("Getting attachment info.");
 		pages = getAttachments(pages);
-		log.info("Getting page permissions.");
-		pages = getPermissions(pages);
+		if(!isIgnoringSecurity()) {
+			log.info("Getting page permissions.");
+			pages = getPermissions(pages);
+		}
 
 		outputPageData(pages);
 		outputLinkData(pages);
@@ -849,6 +853,12 @@ public class MindtouchExporter implements Exporter {
 	private boolean isIgnoringMindtouch() {
 		String prop = (String) properties.get(MindtouchExporter.PROPKEY_IGNOREMT);
 		if (prop == null) prop = DEFAULT_IGNOREMT;
+		return Boolean.parseBoolean(prop);
+	}
+	
+	private boolean isIgnoringSecurity() {
+		String prop = (String) properties.get(MindtouchExporter.PROPKEY_IGNORESECURITY);
+		if (prop == null) prop = PROPKEY_IGNORESECURITY;
 		return Boolean.parseBoolean(prop);
 	}
 	

@@ -20,6 +20,7 @@ Below is the easiest way to get started and see if it works.  It's easier this w
 	* timeout: This is the HTTP connection timeout
 	* socketTimeout: How long we will wait for a response
 		* -1 uses HttpClient default, and skips the page on timeout
+	* ignore.permissions: Do not import MindTouch permission scheme into Confluence
 * Open conf/converter.mindtouch.properties and be sure to uncomment and set the following:
 	* Mindtouch.0203.filepath-hierarchy-ignorable-ancestors.property
 	* Mindtouch.4300.exportdir.property
