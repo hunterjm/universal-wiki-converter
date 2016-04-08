@@ -1,5 +1,6 @@
 package com.atlassian.uwc.exporters.mindtouch;
 
+import java.util.Arrays;
 import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -64,6 +65,25 @@ public class MindtouchPage {
 			pages = removeNode(title, page.getSubpages());
 		}
 		return pages;
+	}
+	
+	/**
+	 * search pages and its subpages for node containing given titles and removes all other nodes
+	 * @param title node with this page should be removed, and it's subpages added to parents subpages
+	 * @param pages set of pages that could contain title node
+	 * @return
+	 */
+	public static Vector<MindtouchPage> keepNode(String[] ids, Vector<MindtouchPage> pages) {
+		Vector<MindtouchPage> newPages = new Vector<MindtouchPage>();
+		for (MindtouchPage page : pages) {
+			if (page == null) continue;
+			if (page.id == null) continue;
+			if (Arrays.asList(ids).contains(page.id)) { //remove it!
+				newPages.add(page);
+			}
+			newPages.addAll(keepNode(ids, page.getSubpages()));
+		}
+		return newPages;
 	}
 
 }

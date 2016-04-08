@@ -66,6 +66,7 @@ public class MindtouchExporter implements Exporter {
 	public static final String PROPKEY_USER = "user";
 	public static final String PROPKEY_PASS = "pass";
 	public static final String PROPKEY_URLPORT = "url.port";
+	public static final String PROPKEY_PAGES = "page.ids";
 	public static final String PROPKEY_USERAGENT = "user-agent";
 	public static final String PROPKEY_OUTPUTDIR = "output.dir";
 	public static final String PROPKEY_BUFFERSIZE = "att.buffer";
@@ -122,6 +123,10 @@ public class MindtouchExporter implements Exporter {
 		Vector<MindtouchPage> pages = parsePageXml(xml);
 		if (isIgnoringMindtouch()) {
 			pages = MindtouchPage.removeNode("MindTouch", pages);
+		}
+		String[] ids = getPageIds();
+		if(ids != null) {
+			pages = MindtouchPage.keepNode(ids, pages);
 		}
 		return pages;
 	}
@@ -264,6 +269,10 @@ public class MindtouchExporter implements Exporter {
 			String id = attFinder.group(2);
 			String after = attFinder.group(3);
 			String fileinfo = getFileInfo(id, "info", ""); //XXX what if fileinfo is null?
+			if(fileinfo == null) {
+				found = false;
+				break;
+			}
 			Matcher titleFinder = title.matcher(fileinfo);
 			if (titleFinder.find()) {
 				String title = titleFinder.group(1);
@@ -787,6 +796,12 @@ public class MindtouchExporter implements Exporter {
 		String prop = (String) properties.get(MindtouchExporter.PROPKEY_PASS);
 		if (prop == null) prop = ""; //default
 		return prop;
+	}
+	
+	private String[] getPageIds() {
+		String prop = (String) properties.get(MindtouchExporter.PROPKEY_PAGES);
+		if(prop == null || prop.isEmpty()) return null;
+		return prop.split(",");
 	}
 	
 	Pattern notdigit = Pattern.compile("\\D");
